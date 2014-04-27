@@ -364,7 +364,8 @@ end
 
 function GM:DoPlayerDeath( ply, attacker, cinfo )
 
-	self.BaseClass:DoPlayerDeath( ply, attacker, cinfo )
+	--self.BaseClass:DoPlayerDeath( ply, attacker, cinfo )
+	-- Don't want this to create a ragdoll for the player
 
 	local num = 0
 	local last = nil
@@ -395,8 +396,43 @@ function GM:DoPlayerDeath( ply, attacker, cinfo )
 		end )
 	end
 
+	-- Create ragdoll fix- code from terrortown
+        local rag = ents.Create("prop_ragdoll")
+        if not IsValid(rag) then return end
+
+        rag:SetPos(ply:GetPos())
+        rag:SetModel(ply:GetModel())
+        rag:SetAngles(ply:GetAngles())
+        --rag:SetColor(ply:GetPlayerColor()) -- colours don't seem to work as well as PlayerColor
+
+        rag:Spawn()
+        rag:Activate()
+
+        rag:SetCollisionGroup(COLLISION_GROUP_DEBRIS_TRIGGER)
+
+        local num = rag:GetPhysicsObjectCount()-1
+        local v = ply:GetVelocity()
+        for i=0, num do
+                local bone = rag:GetPhysicsObjectNum(i)
+                if IsValid(bone)then
+                        local bp, ba = ply:GetBonePosition(rag:TranslatePhysBoneToBone(i))
+                        if bp and ba then
+                                bone:SetPos(bp)
+                                bone:SetAngles(ba)
+                        end
+                        bone:SetVelocity(v)
+                end
+        end
+        ply.server_ragdoll = rag -- nil if clientside
+
 	ply._unspec_deathrag = CurTime() + 2
 
+end
+
+function GM:PlayerDeath(victim, infl, attacker)
+        victim:Spectate(OBS_MODE_CHASE)
+        local rag_ent = victim.server_ragdoll or victim:GetRagdollEntity()
+        victim:SpectateEntity(rag_ent)
 end
 
 local function NextPlayer( ply )
